@@ -1,43 +1,62 @@
 import re
 
-def extract_dynamic_fields(text):
+def extract_dynamic_fields(lines):
     data = {}
 
-    lines = text.split('\n')
+    i = 0
+    while i < len(lines):
 
-    for line in lines:
-        line = line.strip()
+        line = lines[i].strip()
 
-        if len(line) < 3:
+        # skip garbage
+        if len(line) < 2:
+            i += 1
             continue
 
-        # Case 1: Key : Value
-        if ':' in line:
-            parts = line.split(':', 1)
-            key = parts[0].strip()
-            value = parts[1].strip()
+        # -------------------------------
+        # CASE 1: Numbered 3-line pattern
+        # -------------------------------
+        if line.isdigit():
+            if i + 2 < len(lines):
+                key = lines[i + 1].strip()
+                value = lines[i + 2].strip()
 
-        # Case 2: Key - Value
-        elif '-' in line:
-            parts = line.split('-', 1)
-            key = parts[0].strip()
-            value = parts[1].strip()
+                if len(key) > 1 and len(value) > 1:
+                    data[key] = value
+                    i += 3
+                    continue
 
-        else:
-            words = line.split()
+        # --------------------------------
+        # CASE 2: Inline key value
+        # --------------------------------
+        words = line.split()
 
-            if len(words) >= 2:
-                key = words[0]
-                key = key.replace(".", "").strip()
-                value = " ".join(words[1:])
-            else:
+        if len(words) >= 2:
+            key = " ".join(words[:-1])
+            value = words[-1]
+
+            # Detect meaningful value
+            if re.search(r'\d', value) or len(value) > 2:
+                data[key] = value
+
+        # --------------------------------
+        # CASE 3: "Key" on one line, value next
+        # --------------------------------
+        if i + 1 < len(lines):
+            next_line = lines[i + 1].strip()
+
+            if (
+                len(line) > 2 and
+                len(next_line) > 2 and
+                not next_line.isdigit()
+            ):
+                data[line] = next_line
+                i += 2
                 continue
 
-        if len(key) > 1 and len(value) > 1:
-            data[key] = value
+        i += 1
 
-    return data   # ← MUST be here
-
+    return data
 
 def filter_important_fields(data):
     if not data:
